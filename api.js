@@ -3,10 +3,7 @@ import bodyParser from "body-parser";
 import pg from "pg";
 import env from "dotenv";
 import bcrypt from "bcrypt";
-// import session from "express-session";
-// import cores from "cors";
 import jwt from "jsonwebtoken";
-//------------------------------------------------------------//
 import path, { parse } from "path";
 import fs from "fs";
 import multer from "multer";
@@ -16,21 +13,14 @@ const app = express();
 const port = 3000;
 const saltRounds=10;
 const db = new pg.Client({
-    user: "postgres",
+    user: process.env.DATABASE_USER,
     host: "localhost",
     database: "EcoAct",
-    password: "123456789",
+    password:process.env.DATABASE_PASSWORD,
     port: 5432,
   });
 
-// app.use(cores());    
-// app.use(express.json()); 
 app.use(bodyParser.urlencoded({ extended: true }));
-// app.use(session({
-//     secret : "TOPSECRETWORD" ,
-//     resave : false ,
-//     saveUninitialized : true
-// })) ;
 db.connect();
 
 const storage = multer.diskStorage({
@@ -256,10 +246,6 @@ function checkAuth(req, res, next){
                      req.user =user;
                     next();
                 });
-                // const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
-                // console.log(decoded);
-                // req.user = decoded;  // Attach decoded user info to the request
-                // next();
             }
             catch(err){
                 return res.status(401).json({ message: 'Invalid token' });
