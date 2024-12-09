@@ -122,7 +122,7 @@ app.post("/api/add/report",checkAuth,upload.array('reportImg',3), async(req ,res
     const file = req.files;
     const mainImagePath=file.length>0?file[0].path:null;
         try{
-            const insertResult=await db.query("INSERT INTO reports (user_id, issue_type_id, description,image_url,location) VALUES ($1,(SELECT issue_type_id FROM issue_types WHERE name = $2), $3,$4,$5) RETURNING *;" ,
+            const insertResult=await db.query("INSERT INTO reports (user_id, issue_type_id, description,main_image_url,location) VALUES ($1,(SELECT issue_type_id FROM issue_types WHERE name = $2), $3,$4,$5) RETURNING *;" ,
                 [UserId,Report.issueType,Report.description,mainImagePath,reportLocation]);
                 const newReportInfo = insertResult.rows[0];
                 if(file.length>0){
@@ -171,21 +171,29 @@ app.delete("/api/delete/report/:id",checkAuth,async(req ,res)=>{
             res.status(500).json({ error: 'Error While deleting report' });
         }
 });
-//? get all reports
+//? get all reports with filtering by issue-type
 app.get("/api/reports",async(req ,res)=>{
+    const issuetype =req.query.issuetype || "";
     try{
-        const result = await db.query("SELECT report_id ,issue_type_id , description ,image_url ,ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude, created_at report_created_at FROM reports;");
-        res.status(200).json(result.rows); 
+        if(issuetype){
+            const filterResult = await db.query("SELECT report_id ,issue_type_id , description ,main_image_url ,ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude, created_at report_created_at FROM reports WHERE issue_type_id=(SELECT issue_type_id FROM issue_types WHERE name = $1);",[issuetype]);
+            res.status(200).json(filterResult.rows); 
+        }
+        else{
+            const result = await db.query("SELECT report_id ,issue_type_id , description ,main_image_url ,ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude, created_at report_created_at FROM reports;");
+            res.status(200).json(result.rows); 
+        }
     }
     catch(err){
         res.status(401).json({ error: 'error getting reports '});
+        console.log(err)
     }
 });
 //? get a single report
 app.get("/api/reports/:id",async(req ,res)=>{
     const reportId=parseInt(req.params.id);
     try{
-        const result = await db.query("SELECT report_id ,issue_type_id , description ,image_url ,ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude, created_at report_created_at FROM reports WHERE report_id=$1;" ,[reportId]);
+        const result = await db.query("SELECT report_id ,issue_type_id , description ,main_image_url ,ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude, created_at report_created_at FROM reports WHERE report_id=$1;" ,[reportId]);
         const reportImages =await db.query("SELECT * FROM images WHERE report_id=$1;" ,[reportId]);
         res.status(200).json({report : result.rows[0] , images : reportImages.rows}); 
     }
@@ -208,7 +216,7 @@ app.get("/api/user/info",checkAuth, async(req ,res)=>{
     const userID = req.user.id;
     try{
         const User = await db.query("SELECT u.username ,u.email ,u.created_at profile_created_at FROM users u WHERE u.user_id=$1;" ,[userID]);
-        const Reports =await db.query("SELECT report_id , issue_type_id,description ,image_url , ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude,created_at report_created_at FROM reports WHERE user_id=$1;" ,[userID]);
+        const Reports =await db.query("SELECT report_id , issue_type_id,description ,main_image_url , ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude,created_at report_created_at FROM reports WHERE user_id=$1;" ,[userID]);
         res.status(200).json({ User: User.rows[0] , Reports : Reports.rows}); 
     }
     catch(err){
