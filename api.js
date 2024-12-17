@@ -4,9 +4,10 @@ import pg from "pg";
 import env from "dotenv";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import path, { parse } from "path";
+import path from "path";
 import fs from "fs";
 import multer from "multer";
+import verifyCaptcha from "./model/recaptcha.js";
 
 env.config();
 const app = express();
@@ -112,7 +113,7 @@ const UserForLogin = {
 
 });
 //? post new report 
-app.post("/api/add/report",checkAuth,upload.array('reportImg',3), async(req ,res)=>{
+app.post("/api/add/report",checkAuth,verifyCaptcha,upload.array('reportImg',3), async(req ,res)=>{
     const UserId=req.user.id;
     const Report = {
         "issueType" : req.body.issueType ,
