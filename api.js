@@ -21,6 +21,13 @@ const db = new pg.Client({
     password:process.env.DATABASE_PASSWORD,
     port: 5432,
   });
+
+app.use(cors({
+    origin: 'http://localhost:3005', // Angular development server
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+    credentials: true, // If cookies or authentication are required
+  }));
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 app.use(bodyParser.urlencoded({ extended: true }));
