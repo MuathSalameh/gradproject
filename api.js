@@ -7,8 +7,9 @@ import jwt from "jsonwebtoken";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
-import verifyCaptcha from "./model/recaptcha.js";
-
+import verifyCaptcha from "./recaptcha.js";
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 env.config();
 const app = express();
 const port = 3000;
@@ -20,7 +21,8 @@ const db = new pg.Client({
     password:process.env.DATABASE_PASSWORD,
     port: 5432,
   });
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 app.use(bodyParser.urlencoded({ extended: true }));
 db.connect();
 
@@ -53,13 +55,16 @@ const upload = multer({
       }
     }
 });
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 //? User Registeration 
 app.post("/api/auth/register",async(req,res)=>{
     const UserForRegister={
-        "username" : req.body.username,
-        "email" : req.body.email,
-        "password" :  req.body.password 
-        }
+        "username" : req.body["username"],
+        "email" : req.body["email"],
+        "password" :  req.body["password"] 
+    }
+        console.log(UserForRegister.email + " " + UserForRegister.username + " " + UserForRegister.password)
     try{
          const CheckUserExist = await db.query("SELECT * FROM Users WHERE Email=$1",[UserForRegister.email])
             if(CheckUserExist.rows.length<=0){
@@ -145,15 +150,15 @@ app.put("/api/edit/report/:id", checkAuth , async(req ,res)=>{
         "issueType" : req.body.issueType ,
         "description" : req.body.description 
     };
-    const reportLocation = `POINT(${req.body.longitude} ${req.body.latitude})`;
         try{
-                const updateResult = await db.query("UPDATE reports SET issue_type_id =(SELECT issue_type_id FROM issue_types WHERE name=$1) , description=$2 ,location =$3 WHERE report_id = $4 AND user_id= $5 RETURNING *;",
-                [Report.issueType,Report.description,reportLocation,reportId,UserId]
+                const updateResult = await db.query("UPDATE reports SET issue_type_id =(SELECT issue_type_id FROM issue_types WHERE name=$1) , description=$2  WHERE report_id = $3 AND user_id= $4 RETURNING *;",
+                [Report.issueType,Report.description,reportId,UserId]
             );
-            if(updateResult.length>0)
+            if(updateResult)
             res.status(200).json({ Message:'report updated successfully' , report : updateResult.rows[0]});
             else{
                 res.status(404).json({ Message:'report doesn\'t exist or doesn\'t belong to you'});
+                console.log(Report)
             }
         }
         catch(err){
@@ -172,6 +177,7 @@ app.delete("/api/delete/report/:id",checkAuth,async(req ,res)=>{
             res.status(500).json({ error: 'Error While deleting report' });
         }
 });
+
 //? get all reports with filtering by issue-type
 app.get("/api/reports",async(req ,res)=>{
     const issuetype =req.query.issuetype || "";
@@ -190,7 +196,7 @@ app.get("/api/reports",async(req ,res)=>{
         console.log(err)
     }
 });
-//? get a single report
+//! get a single report
 app.get("/api/reports/:id",async(req ,res)=>{
     const reportId=parseInt(req.params.id);
     try{
@@ -217,7 +223,7 @@ app.get("/api/user/info",checkAuth, async(req ,res)=>{
     const userID = req.user.id;
     try{
         const User = await db.query("SELECT u.username ,u.email ,u.created_at profile_created_at FROM users u WHERE u.user_id=$1;" ,[userID]);
-        const Reports =await db.query("SELECT report_id , issue_type_id,description ,main_image_url , ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude,created_at report_created_at FROM reports WHERE user_id=$1;" ,[userID]);
+        const Reports =await db.query("SELECT report_id , issue_type_id,description , main_image_url , ST_X(location::GEOMETRY) longitude, ST_Y(location::GEOMETRY) latitude, DATE(created_at) AS report_created_at FROM reports WHERE user_id=$1;" ,[userID]);
         res.status(200).json({ User: User.rows[0] , Reports : Reports.rows}); 
     }
     catch(err){
